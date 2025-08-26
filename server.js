@@ -49,7 +49,7 @@ const Message = mongoose.model('Message', messageSchema);
 // ===== Middleware =====
 app.use(cors({
   origin: [
-    "https://your-frontend.vercel.app", // ✅ Replace with your Vercel frontend URL
+    "https://chat-app-frontend-lac-psi.vercel.app", // ✅ Replace with your Vercel frontend URL
   ],
   methods: ["GET", "POST", "PUT", "DELETE"],
   credentials: true,
