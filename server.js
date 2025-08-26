@@ -15,18 +15,20 @@ const io = socketio(server, {
   cors: { origin: '*', methods: ['GET', 'POST'] }
 });
 
+// ===== Environment Variables =====
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret';
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost/chat_app';
+const PORT = process.env.PORT || 5000;
 
+// ===== MongoDB Connection =====
 mongoose.connect(MONGO_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
-}).then(() => console.log('MongoDB connected'))
-  .catch(err => console.error('MongoDB connection error:', err));
+})
+  .then(() => console.log('✅ MongoDB connected'))
+  .catch(err => console.error('❌ MongoDB connection error:', err));
 
-const PORT = process.env.PORT || 5000;
-
-// Schemas
+// ===== Schemas =====
 const userSchema = new mongoose.Schema({
   username: { type: String, unique: true },
   passwordHash: String,
@@ -34,27 +36,31 @@ const userSchema = new mongoose.Schema({
 
 const messageSchema = new mongoose.Schema({
   from: String,
-  to: String, // null means group message
+  to: String, // null = group message
   content: String,
   type: { type: String, default: 'text' }, // text, image, voice
   timestamp: { type: Date, default: Date.now },
-  room: String, // room id for group or private chat
+  room: String, // room id for group/private chat
 });
 
 const User = mongoose.model('User', userSchema);
 const Message = mongoose.model('Message', messageSchema);
 
-// Middleware
-app.use(cors());
+// ===== Middleware =====
+app.use(cors({
+  origin: [
+    "https://your-frontend.vercel.app", // ✅ Replace with your Vercel frontend URL
+  ],
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  credentials: true,
+}));
 app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Multer setup
+// ===== Multer setup (file uploads) =====
 const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, 'uploads/')
-  },
-  filename: function (req, file, cb) {
+  destination: (req, file, cb) => cb(null, 'uploads/'),
+  filename: (req, file, cb) => {
     const uniqueSuffix =
       Date.now() + '-' + Math.round(Math.random() * 1e9) + path.extname(file.originalname);
     cb(null, file.fieldname + '-' + uniqueSuffix);
@@ -62,7 +68,7 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-// Helper: JWT auth middleware
+// ===== JWT auth middleware =====
 function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];
   if (!authHeader) return res.sendStatus(401);
@@ -77,7 +83,12 @@ function authenticateToken(req, res, next) {
   });
 }
 
-// Routes
+// ===== Routes =====
+
+// Root route for testing
+app.get("/", (req, res) => {
+  res.send("✅ Chat backend is running...");
+});
 
 // Register
 app.post('/api/auth/register', async (req, res) => {
@@ -104,7 +115,11 @@ app.post('/api/auth/login', async (req, res) => {
   const isValid = await bcrypt.compare(password, user.passwordHash);
   if (!isValid) return res.status(400).json({ message: 'Invalid credentials' });
 
-  const token = jwt.sign({ id: user._id, username: user.username }, JWT_SECRET, { expiresIn: '1d' });
+  const token = jwt.sign(
+    { id: user._id, username: user.username },
+    JWT_SECRET,
+    { expiresIn: '1d' }
+  );
   res.json({ token, username: user.username });
 });
 
@@ -123,8 +138,7 @@ app.post('/api/upload', authenticateToken, upload.single('file'), (req, res) => 
   res.json({ url: fileUrl });
 });
 
-// Socket.IO setup
-
+// ===== Socket.IO =====
 const onlineUsers = new Map(); // username -> socket.id
 
 io.use((socket, next) => {
@@ -191,4 +205,5 @@ io.on('connection', (socket) => {
   });
 });
 
-server.listen(PORT, () => console.log(`Server listening on port ${PORT}`));
+// ===== Start Server =====
+server.listen(PORT, () => console.log(`🚀 Server listening on port ${PORT}`));
